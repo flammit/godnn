@@ -6,7 +6,29 @@ import (
 	"math"
 )
 
-// TODO: use ASM to optimize
+func Min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func Max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
+
+// TODO: use float32 ASM to optimize
+func Pos32(x float32) float32 {
+	if x >= 0 {
+		return 1
+	} else {
+		return 0
+	}
+}
+func Ceil32(x float32) float32  { return float32(math.Ceil(float64(x))) }
 func Floor32(x float32) float32 { return float32(math.Floor(float64(x))) }
 func Exp32(x float32) float32   { return float32(math.Exp(float64(x))) }
 func Log32(x float32) float32   { return float32(math.Log(float64(x))) }
@@ -18,9 +40,12 @@ func Sign32(x float32) float32 {
 	}
 	return 1
 }
+func Add32(x, y float32) float32 { return x + y }
+func Sub32(x, y float32) float32 { return x - y }
 func Mul32(x, y float32) float32 { return x * y }
 func Div32(x, y float32) float32 { return x / y }
 func Max32(x, y float32) float32 { return float32(math.Max(float64(x), float64(y))) }
+func Min32(x, y float32) float32 { return float32(math.Min(float64(x), float64(y))) }
 func Pow32(x, n float32) float32 { return float32(math.Pow(float64(x), float64(n))) }
 
 var (
@@ -45,14 +70,22 @@ func Copy32(a, b []float32, count, offset int) {
 }
 
 func UnaryApply32(a []float32, fn func(x float32) float32) {
+	UnaryEval32(a, a, fn)
+}
+
+func UnaryEval32(a, y []float32, fn func(x float32) float32) {
 	for i, x := range a {
-		a[i] = fn(x)
+		y[i] = fn(x)
 	}
 }
 
 func BinaryApply32(a, b []float32, fn func(x, y float32) float32) {
+	BinaryEval32(a, b, a, fn)
+}
+
+func BinaryEval32(a, b, y []float32, fn func(x, y float32) float32) {
 	for i, x := range a {
-		a[i] = fn(x, b[i])
+		y[i] = fn(x, b[i])
 	}
 }
 
@@ -95,4 +128,49 @@ func Scal32(n int, alpha float32, x []float32) {
 
 func Asum32(n int, x []float32) float32 {
 	return cpuBlas.Sasum(n, x, 1)
+}
+
+func Im2col32(data_im []float32, channels, height, width, kernel_h, kernel_w,
+	pad_h, pad_w, stride_h, stride_w int, data_col []float32) {
+	height_col := (height+2*pad_h-kernel_h)/stride_h + 1
+	width_col := (width+2*pad_w-kernel_w)/stride_w + 1
+	channels_col := channels * kernel_h * kernel_w
+	for c := 0; c < channels_col; c++ {
+		w_offset := c % kernel_w
+		h_offset := (c / kernel_w) % kernel_h
+		c_im := c / kernel_h / kernel_w
+		for h := 0; h < height_col; h++ {
+			for w := 0; w < width_col; w++ {
+				h_pad := h*stride_h - pad_h + h_offset
+				w_pad := w*stride_w - pad_w + w_offset
+				if h_pad >= 0 && h_pad < height && w_pad >= 0 && w_pad < width {
+					data_col[(c*height_col+h)*width_col+w] = data_im[(c_im*height+h_pad)*width+w_pad]
+				} else {
+					data_col[(c*height_col+h)*width_col+w] = 0
+				}
+			}
+		}
+	}
+}
+
+func Col2im32(data_col []float32, channels, height, width, patch_h, patch_w,
+	pad_h, pad_w, stride_h, stride_w int, data_im []float32) {
+	Set32(data_im, 0)
+	height_col := (height+2*pad_h-patch_h)/stride_h + 1
+	width_col := (width+2*pad_w-patch_w)/stride_w + 1
+	channels_col := channels * patch_h * patch_w
+	for c := 0; c < channels_col; c++ {
+		w_offset := c % patch_w
+		h_offset := (c / patch_w) % patch_h
+		c_im := c / patch_h / patch_w
+		for h := 0; h < height_col; h++ {
+			for w := 0; w < width_col; w++ {
+				h_pad := h*stride_h - pad_h + h_offset
+				w_pad := w*stride_w - pad_w + w_offset
+				if h_pad >= 0 && h_pad < height && w_pad >= 0 && w_pad < width {
+					data_im[(c_im*height+h_pad)*width+w_pad] += data_col[(c*height_col+h)*width_col+w]
+				}
+			}
+		}
+	}
 }

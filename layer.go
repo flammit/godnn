@@ -47,10 +47,20 @@ func (l *BaseLayer) LayerName() string         { return l.Name }
 func (l *BaseLayer) TopBlobNames() []string    { return l.TopNames }
 func (l *BaseLayer) BottomBlobNames() []string { return l.BottomNames }
 func (l *BaseLayer) checkNames(expectedBottom, expectedTop int) error {
-	if len(l.BottomNames) != expectedBottom {
+	err := l.checkBottomNames(expectedBottom)
+	if err != nil {
+		return nil
+	}
+	return l.checkTopNames(expectedTop)
+}
+func (l *BaseLayer) checkBottomNames(expected int) error {
+	if len(l.BottomNames) != expected {
 		return ErrInvalidBottomBlobNames
 	}
-	if len(l.TopNames) != expectedTop {
+	return nil
+}
+func (l *BaseLayer) checkTopNames(expected int) error {
+	if len(l.TopNames) != expected {
 		return ErrInvalidTopBlobNames
 	}
 	return nil

@@ -16,8 +16,10 @@ type InnerProductLayer struct {
 	biasMultiplier *Blob
 }
 
+var _ = Layer(new(InnerProductLayer))
+
 func (l *InnerProductLayer) Setup(d *LayerData) error {
-	err := l.BaseLayer.checkNames(1, 1)
+	err := l.checkNames(1, 1)
 	if err != nil {
 		return err
 	}
@@ -83,7 +85,13 @@ func (l *InnerProductLayer) Params() []*Blob {
 	return []*Blob{l.weightParams}
 }
 
-var _ = Layer(new(InnerProductLayer))
+func NewInnerProductLayer(baseLayer BaseLayer, numOutputs int, includeBias bool) *InnerProductLayer {
+	return &InnerProductLayer{
+		BaseLayer:   baseLayer,
+		NumOutputs:  numOutputs,
+		IncludeBias: includeBias,
+	}
+}
 
 type SoftmaxLayer struct {
 	BaseLayer
@@ -91,8 +99,10 @@ type SoftmaxLayer struct {
 	scale         *Blob
 }
 
+var _ = Layer(new(SoftmaxLayer))
+
 func (l *SoftmaxLayer) Setup(d *LayerData) error {
-	err := l.BaseLayer.checkNames(1, 1)
+	err := l.checkNames(1, 1)
 	if err != nil {
 		return err
 	}
@@ -178,4 +188,6 @@ func (l *SoftmaxLayer) FeedBackward(d *LayerData, paramPropagate bool) {
 
 func (l *SoftmaxLayer) Params() []*Blob { return nil }
 
-var _ = Layer(new(SoftmaxLayer))
+func NewSoftmaxLayer(baseLayer BaseLayer) *SoftmaxLayer {
+	return &SoftmaxLayer{BaseLayer: baseLayer}
+}

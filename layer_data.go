@@ -22,6 +22,8 @@ type FixedDataLayer struct {
 	inputIndex int
 }
 
+var _ = DataLayer(new(FixedDataLayer))
+
 func (l *FixedDataLayer) Setup(d *LayerData) error {
 	if len(l.Data) == 0 {
 		return ErrFixedLayerInvalidData
@@ -30,7 +32,7 @@ func (l *FixedDataLayer) Setup(d *LayerData) error {
 		return ErrFixedLayerInvalidData
 	}
 
-	err := l.BaseLayer.checkNames(0, len(l.Data))
+	err := l.checkNames(0, len(l.Data))
 	if err != nil {
 		return err
 	}
@@ -59,7 +61,7 @@ func (l *FixedDataLayer) Setup(d *LayerData) error {
 
 	d.Top = make([]*Blob, len(l.Data))
 	for i := 0; i < len(l.Data); i++ {
-		d.Top[i] = NewBlob(l.BaseLayer.TopNames[i], l.DataDims[i])
+		d.Top[i] = NewBlob(l.TopNames[i], l.DataDims[i])
 	}
 
 	return nil
@@ -77,5 +79,3 @@ func (l *FixedDataLayer) FeedBackward(d *LayerData, paramPropagate bool) {}
 func (l *FixedDataLayer) Params() []*Blob                                { return nil }
 func (l *FixedDataLayer) CurrentInputIndex() int                         { return l.inputIndex }
 func (l *FixedDataLayer) NumInputs() int                                 { return l.numInputs }
-
-var _ = DataLayer(new(FixedDataLayer))
