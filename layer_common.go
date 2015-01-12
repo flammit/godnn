@@ -4,7 +4,7 @@ import (
 	"github.com/gonum/blas"
 )
 
-type InnerProductLayer struct {
+type FullyConnectedLayer struct {
 	BaseLayer
 	NumOutputs     int
 	IncludeBias    bool
@@ -16,9 +16,9 @@ type InnerProductLayer struct {
 	biasMultiplier *Blob
 }
 
-var _ = Layer(new(InnerProductLayer))
+var _ = Layer(new(FullyConnectedLayer))
 
-func (l *InnerProductLayer) Setup(d *LayerData) error {
+func (l *FullyConnectedLayer) Setup(d *LayerData) error {
 	err := l.checkNames(1, 1)
 	if err != nil {
 		return err
@@ -34,7 +34,9 @@ func (l *InnerProductLayer) Setup(d *LayerData) error {
 		l.biasParams = NewBlob(l.LayerName()+"_bias", &BlobPoint{1, 1, 1, l.n})
 		l.biasMultiplier = NewBlob(l.LayerName()+"_biasMultiplier", &BlobPoint{1, 1, 1, l.m})
 	}
-	// TODO: initialize weights / bias / bias multiplier with filler
+	Set32(l.weightParams.Data.MutableCpuValues(), 0)
+	Set32(l.biasParams.Data.MutableCpuValues(), 0)
+	Set32(l.biasMultiplier.Data.MutableCpuValues(), 1)
 
 	d.Top = make([]*Blob, 1)
 	d.Top[0] = NewBlob(l.TopNames[0], &BlobPoint{l.m, l.n, 1, 1})
@@ -42,7 +44,7 @@ func (l *InnerProductLayer) Setup(d *LayerData) error {
 	return nil
 }
 
-func (l *InnerProductLayer) FeedForward(d *LayerData) float32 {
+func (l *FullyConnectedLayer) FeedForward(d *LayerData) float32 {
 	bottomData := d.Bottom[0].Data.CpuValues()
 	weightParams := l.weightParams.Data.CpuValues()
 	topData := d.Top[0].Data.MutableCpuValues()
@@ -55,7 +57,7 @@ func (l *InnerProductLayer) FeedForward(d *LayerData) float32 {
 	return 0
 }
 
-func (l *InnerProductLayer) FeedBackward(d *LayerData, paramPropagate bool) {
+func (l *FullyConnectedLayer) FeedBackward(d *LayerData, paramPropagate bool) {
 	topDiff := d.Top[0].Diff.CpuValues()
 
 	if paramPropagate {
@@ -78,15 +80,15 @@ func (l *InnerProductLayer) FeedBackward(d *LayerData, paramPropagate bool) {
 	Gemm32(blas.NoTrans, blas.NoTrans, l.m, l.k, l.n, 1, topDiff, weightParams, 0, bottomDiff)
 }
 
-func (l *InnerProductLayer) Params() []*Blob {
+func (l *FullyConnectedLayer) Params() []*Blob {
 	if l.IncludeBias {
 		return []*Blob{l.weightParams, l.biasParams}
 	}
 	return []*Blob{l.weightParams}
 }
 
-func NewInnerProductLayer(baseLayer BaseLayer, numOutputs int, includeBias bool) *InnerProductLayer {
-	return &InnerProductLayer{
+func NewFullyConnectedLayer(baseLayer BaseLayer, numOutputs int, includeBias bool) *FullyConnectedLayer {
+	return &FullyConnectedLayer{
 		BaseLayer:   baseLayer,
 		NumOutputs:  numOutputs,
 		IncludeBias: includeBias,

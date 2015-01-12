@@ -34,6 +34,7 @@ func Exp32(x float32) float32   { return float32(math.Exp(float64(x))) }
 func Log32(x float32) float32   { return float32(math.Log(float64(x))) }
 func Abs32(x float32) float32   { return float32(math.Abs(float64(x))) }
 func Sq32(x float32) float32    { return x * x }
+func Sqrt32(x float32) float32  { return float32(math.Sqrt(float64(x))) }
 func Sign32(x float32) float32 {
 	if math.Signbit(float64(x)) {
 		return -1

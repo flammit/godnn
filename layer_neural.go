@@ -88,7 +88,7 @@ func (l *ReLULayer) FeedBackward(d *LayerData, paramPropagate bool) {
 	bottomDiff := d.Bottom[0].Diff.MutableCpuValues()
 	negativeSlope := l.NegativeSlope
 	for i, diff := range topDiff {
-		if bottomData[i] > 0 {
+		if bottomData[i] >= 0 {
 			bottomDiff[i] = diff
 		} else {
 			bottomDiff[i] = negativeSlope

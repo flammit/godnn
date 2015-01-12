@@ -16,7 +16,7 @@ func TestRandomData(n int) godnn.DataLayer {
 		e := float32(rand.Int()%2) - 0.5
 		f := float32(rand.Int()%2) - 0.5
 		r := (rand.Float32() - 0.5) * 0.05
-		data[0][i] = []float32{d + r + (1 * e), e + rand.Float32(), f + rand.Float32(), rand.Float32()}
+		data[0][i] = []float32{d + r + (0.05 * e), e + rand.Float32(), f + rand.Float32(), rand.Float32()}
 		data[1][i] = []float32{d}
 	}
 
@@ -36,10 +36,10 @@ func TestRandomData(n int) godnn.DataLayer {
 }
 
 func main() {
-	trainSize := 100000
+	trainSize := 1000
 	layers := []godnn.Layer{
 		TestRandomData(trainSize),
-		&godnn.InnerProductLayer{
+		&godnn.FullyConnectedLayer{
 			BaseLayer: godnn.BaseLayer{
 				"ip",
 				[]string{"data"},
@@ -58,7 +58,7 @@ func main() {
 	}
 	net, err := godnn.NewNetwork(layers)
 	if err != nil {
-		log.Fatalln("failed to create network", err)
+		log.Fatalln("failed to create network:", err)
 	}
 	log.Printf("Net Layers: %#v\n", net.Layers)
 	for i, layer := range net.Layers {

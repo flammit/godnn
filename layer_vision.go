@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/gonum/blas"
 	"math"
+	"math/rand"
 )
 
 type ConvolutionLayer struct {
@@ -72,7 +73,12 @@ func (l *ConvolutionLayer) Setup(d *LayerData) error {
 		l.biasMultiplier = NewBlob(l.LayerName()+"_biasMultiplier",
 			&BlobPoint{1, 1, 1, l.heightTop * l.widthTop})
 	}
-	// TODO: fill weights and bias terms
+	weightData := l.weightParams.Data.MutableCpuValues()
+	weightScale := Sqrt32(3 / float32(l.bottomDim.BatchSize()))
+	for i, _ := range weightData {
+		weightData[i] = (rand.Float32() - 0.5) * 2.0 * weightScale
+	}
+	Set32(l.biasParams.Data.MutableCpuValues(), 0)
 	Set32(l.biasMultiplier.Data.MutableCpuValues(), 1)
 
 	l.colBuffer = NewBlob(l.LayerName()+"_colBuffer",
@@ -208,8 +214,6 @@ const (
 type PoolingLayer struct {
 	BaseLayer
 	Method       PoolMethod
-	NumOutputs   int
-	NumGroups    int
 	KernelHeight int
 	KernelWidth  int
 	PadHeight    int
@@ -260,6 +264,7 @@ func (l *PoolingLayer) FeedForward(d *LayerData) float32 {
 	case PoolMethodAverage:
 		l.feedForwardAverage(bottomData, topData)
 	}
+
 	return 0
 }
 
