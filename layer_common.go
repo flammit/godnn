@@ -29,17 +29,29 @@ func (l *FullyConnectedLayer) Setup(d *LayerData) error {
 	l.n = l.NumOutputs
 	l.k = bottomDim.BatchSize()
 
-	l.weightParams = NewBlob(l.LayerName()+"_weight", &BlobPoint{1, 1, l.n, l.k})
-	if l.IncludeBias {
-		l.biasParams = NewBlob(l.LayerName()+"_bias", &BlobPoint{1, 1, 1, l.n})
-		l.biasMultiplier = NewBlob(l.LayerName()+"_biasMultiplier", &BlobPoint{1, 1, 1, l.m})
+	if d.Params == nil {
+		l.weightParams = NewBlob(l.LayerName()+"_weight", &BlobPoint{1, 1, l.n, l.k})
+		d.Params = []*Blob{l.weightParams}
+		if l.IncludeBias {
+			l.biasParams = NewBlob(l.LayerName()+"_bias", &BlobPoint{1, 1, 1, l.n})
+			d.Params = append(d.Params, l.biasParams)
+		}
+		Set32(l.weightParams.Data.MutableCpuValues(), 0)
+		Set32(l.biasParams.Data.MutableCpuValues(), 0)
+	} else {
+		l.weightParams = d.Params[0]
+		l.biasParams = d.Params[1]
 	}
-	Set32(l.weightParams.Data.MutableCpuValues(), 0)
-	Set32(l.biasParams.Data.MutableCpuValues(), 0)
-	Set32(l.biasMultiplier.Data.MutableCpuValues(), 1)
 
-	d.Top = make([]*Blob, 1)
-	d.Top[0] = NewBlob(l.TopNames[0], &BlobPoint{l.m, l.n, 1, 1})
+	if l.IncludeBias {
+		l.biasMultiplier = NewBlob(l.LayerName()+"_biasMultiplier", &BlobPoint{1, 1, 1, l.m})
+		Set32(l.biasMultiplier.Data.MutableCpuValues(), 1)
+	}
+
+	if d.Top == nil {
+		d.Top = make([]*Blob, 1)
+		d.Top[0] = NewBlob(l.TopNames[0], &BlobPoint{l.m, l.n, 1, 1})
+	}
 
 	return nil
 }
@@ -80,13 +92,6 @@ func (l *FullyConnectedLayer) FeedBackward(d *LayerData, paramPropagate bool) {
 	Gemm32(blas.NoTrans, blas.NoTrans, l.m, l.k, l.n, 1, topDiff, weightParams, 0, bottomDiff)
 }
 
-func (l *FullyConnectedLayer) Params() []*Blob {
-	if l.IncludeBias {
-		return []*Blob{l.weightParams, l.biasParams}
-	}
-	return []*Blob{l.weightParams}
-}
-
 func NewFullyConnectedLayer(baseLayer BaseLayer, numOutputs int, includeBias bool) *FullyConnectedLayer {
 	return &FullyConnectedLayer{
 		BaseLayer:   baseLayer,
@@ -114,8 +119,11 @@ func (l *SoftmaxLayer) Setup(d *LayerData) error {
 	Set32(l.sumMultiplier.Data.MutableCpuValues(), 1)
 	l.scale = NewBlob(l.LayerName()+"_scale", &BlobPoint{1, 1, bottomDim.Height, bottomDim.Width})
 
-	d.Top = make([]*Blob, 1)
-	d.Top[0] = NewBlob(l.TopNames[0], &d.Bottom[0].Dim)
+	if d.Top == nil {
+		d.Top = make([]*Blob, 1)
+		d.Top[0] = NewBlob(l.TopNames[0], &d.Bottom[0].Dim)
+	}
+
 	return nil
 }
 
@@ -187,8 +195,6 @@ func (l *SoftmaxLayer) FeedBackward(d *LayerData, paramPropagate bool) {
 
 	BinaryApply32(bottomDiff, topData, Mul32)
 }
-
-func (l *SoftmaxLayer) Params() []*Blob { return nil }
 
 func NewSoftmaxLayer(baseLayer BaseLayer) *SoftmaxLayer {
 	return &SoftmaxLayer{BaseLayer: baseLayer}

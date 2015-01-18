@@ -5,17 +5,8 @@ import (
 	"log"
 )
 
-func main() {
-	layers := []godnn.Layer{
-		&godnn.BoltDbDataLayer{
-			BaseLayer: godnn.BaseLayer{
-				"data",
-				[]string{},
-				[]string{"images", "labels"},
-			},
-			DbFileName: "train.db",
-			NumInBatch: 64,
-		},
+func CommonMnistLayers() []godnn.Layer {
+	return []godnn.Layer{
 		&godnn.ConvolutionLayer{
 			BaseLayer: godnn.BaseLayer{
 				"conv1",
@@ -110,13 +101,52 @@ func main() {
 			},
 		},
 	}
+}
+
+func TrainMnistNetwork() *godnn.Network {
+	layers := []godnn.Layer{
+		&godnn.BoltDbDataLayer{
+			BaseLayer: godnn.BaseLayer{
+				"data",
+				[]string{},
+				[]string{"images", "labels"},
+			},
+			DbFileName: "train.db",
+			NumInBatch: 64,
+		},
+	}
+	layers = append(layers, CommonMnistLayers()...)
 	net, err := godnn.NewNetwork(layers)
 	if err != nil {
-		log.Fatalln("failed to create network: ", err)
+		log.Fatalln("failed to create training network: ", err)
 	}
+	return net
+}
+
+func TestMnistNetwork(trainNet *godnn.Network) *godnn.Network {
+	layers := []godnn.Layer{
+		&godnn.BoltDbDataLayer{
+			BaseLayer: godnn.BaseLayer{
+				"data",
+				[]string{},
+				[]string{"images", "labels"},
+			},
+			DbFileName: "t10k.db",
+			NumInBatch: 64,
+		},
+	}
+	layers = append(layers, CommonMnistLayers()...)
+	net, err := godnn.NewNetworkFromTraining(layers, trainNet)
+	if err != nil {
+		log.Fatalln("failed to create test network: ", err)
+	}
+	return net
+}
+
+func PrintNetwork(net *godnn.Network) {
 	log.Printf("Net Layers: %#v\n", net.Layers)
 	for i, layer := range net.Layers {
-		layerData := net.LayerDatas[i]
+		layerData := net.LayerData(layer)
 		log.Printf("Layer %d: %s\n", i, layer)
 		for j, bottomBlob := range layerData.Bottom {
 			log.Printf("Bottom Blob %d: %s\n", j, bottomBlob)
@@ -126,13 +156,26 @@ func main() {
 		}
 	}
 	log.Printf("Net Params: %#v\n", net.Params)
+}
 
-	solver := godnn.NewSgdSolver(net)
-	net.UpdateParams = true
-	for i := 0; i < 1000; i++ {
-		loss := net.ForwardBackward()
-		log.Printf("ForwardBackward %d: %f\n", i, loss)
-		solver.ComputeUpdates()
-		net.Update()
+func main() {
+	trainNet := TrainMnistNetwork()
+	trainNet.UpdateParams = true
+	solver := godnn.NewSgdSolver(trainNet)
+	PrintNetwork(trainNet)
+
+	// TODO: need to support batch reshape
+	testNet := TestMnistNetwork(trainNet)
+	testNet.UpdateParams = false
+	for j := 0; j < 5; j++ {
+		for i := 0; i < 100; i++ {
+			loss := trainNet.ForwardBackward()
+			log.Printf("Training ForwardBackward %d: %f\n", i, loss)
+			solver.ComputeUpdates()
+			trainNet.Update()
+		}
+
+		loss := testNet.ForwardBackward()
+		log.Printf("Test ForwardBackward %d: %f\n", j, loss)
 	}
 }

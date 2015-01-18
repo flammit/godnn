@@ -2,7 +2,7 @@ package godnn
 
 import (
 	"github.com/gonum/blas"
-	"github.com/gonum/blas/cblas"
+	"github.com/gonum/blas/cgo"
 	"math"
 )
 
@@ -50,7 +50,7 @@ func Min32(x, y float32) float32 { return float32(math.Min(float64(x), float64(y
 func Pow32(x, n float32) float32 { return float32(math.Pow(float64(x), float64(n))) }
 
 var (
-	cpuBlas = new(cblas.Blas)
+	cpuBlas = new(cgo.Implementation)
 )
 
 func Subslice32(a []float32, offset, size int) []float32 {

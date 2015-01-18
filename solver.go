@@ -12,13 +12,14 @@ type SgdSolver struct {
 	StepSize         int
 	net              *Network
 
+	netParams  []*Blob
 	lastParams []*Blob // diffs are last param diffs, data is temporary
 	iterations int
 }
 
 func (s *SgdSolver) ComputeUpdates() {
 	s.iterations++
-	for i, param := range s.net.Params {
+	for i, param := range s.netParams {
 		paramData := param.Data.CpuValues()
 		paramDiff := param.Diff.MutableCpuValues()
 
@@ -51,8 +52,9 @@ func NewSgdSolver(net *Network) *SgdSolver {
 	s.StepSize = 100000
 	s.WeightDecay = float32(0.0005)
 
-	s.lastParams = make([]*Blob, len(net.Params))
-	for i, param := range net.Params {
+	s.netParams = net.Params()
+	s.lastParams = make([]*Blob, len(s.netParams))
+	for i, param := range s.netParams {
 		s.lastParams[i] = NewBlob(param.Name+"_solver_last", &param.Dim)
 	}
 	return s

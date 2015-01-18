@@ -13,8 +13,11 @@ func (l *NeuronLayer) Setup(d *LayerData) error {
 		return err
 	}
 
-	d.Top = make([]*Blob, 1)
-	d.Top[0] = NewBlob(l.TopNames[0], &d.Bottom[0].Dim)
+	if d.Top == nil {
+		d.Top = make([]*Blob, 1)
+		d.Top[0] = NewBlob(l.TopNames[0], &d.Bottom[0].Dim)
+	}
+
 	return nil
 }
 
@@ -35,8 +38,6 @@ func (l *NeuronLayer) FeedBackward(d *LayerData, paramPropagate bool) {
 		bottomDiff[i] = diff * l.f.FirstDeriv(bottomData[i])
 	}
 }
-
-func (l *NeuronLayer) Params() []*Blob { return nil }
 
 func NewIdentityLayer(baseLayer BaseLayer) Layer {
 	return &NeuronLayer{baseLayer, Identity}
@@ -67,8 +68,11 @@ func (l *ReLULayer) Setup(d *LayerData) error {
 		return err
 	}
 
-	d.Top = make([]*Blob, 1)
-	d.Top[0] = NewBlob(l.TopNames[0], &d.Bottom[0].Dim)
+	if d.Top == nil {
+		d.Top = make([]*Blob, 1)
+		d.Top[0] = NewBlob(l.TopNames[0], &d.Bottom[0].Dim)
+	}
+
 	return nil
 }
 
@@ -95,8 +99,6 @@ func (l *ReLULayer) FeedBackward(d *LayerData, paramPropagate bool) {
 		}
 	}
 }
-
-func (l *ReLULayer) Params() []*Blob { return nil }
 
 func NewReLULayer(baseLayer BaseLayer, negativeSlope float32) *ReLULayer {
 	return &ReLULayer{baseLayer, negativeSlope}

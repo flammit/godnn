@@ -13,6 +13,7 @@ var (
 type LayerData struct {
 	Bottom []*Blob
 	Top    []*Blob
+	Params []*Blob
 }
 
 func (d *LayerData) DebugLayerData() {
@@ -33,7 +34,6 @@ type Layer interface {
 	Setup(d *LayerData) error
 	FeedForward(d *LayerData) float32
 	FeedBackward(d *LayerData, paramPropagate bool)
-	Params() []*Blob
 }
 
 type BaseLayer struct {

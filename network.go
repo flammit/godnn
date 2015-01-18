@@ -10,18 +10,26 @@ var (
 )
 
 type Network struct {
-	Layers       []Layer
-	LayerDatas   []*LayerData
-	UpdateParams bool
-
-	BlobsByName map[string]*Blob
-	Params      []*Blob
-	LastParams  []*Blob
-	ParamTemps  []*Blob
+	Layers          []Layer
+	LayerDataByName map[string]*LayerData
+	BlobsByName     map[string]*Blob
+	UpdateParams    bool
 }
 
 func NewNetwork(layers []Layer) (*Network, error) {
+	return NewNetworkFromTraining(layers, nil)
+}
+
+func NewNetworkFromTraining(layers []Layer, trainNet *Network) (*Network, error) {
 	n := new(Network)
+	n.Layers = make([]Layer, 0, len(layers))
+	if trainNet != nil {
+		n.LayerDataByName = trainNet.LayerDataByName
+		n.BlobsByName = trainNet.BlobsByName
+	} else {
+		n.LayerDataByName = make(map[string]*LayerData, len(layers))
+		n.BlobsByName = make(map[string]*Blob)
+	}
 	err := n.initLayers(layers)
 	if err != nil {
 		return nil, err
@@ -31,9 +39,6 @@ func NewNetwork(layers []Layer) (*Network, error) {
 
 func (n *Network) initLayers(layers []Layer) error {
 	// create layer data and connect layers via blob names
-	n.Layers = make([]Layer, 0, len(layers))
-	n.LayerDatas = make([]*LayerData, 0, len(layers))
-	n.BlobsByName = make(map[string]*Blob)
 	added := make([]bool, len(layers))
 finalLayer:
 	for len(n.Layers) < len(layers) {
@@ -52,32 +57,33 @@ finalLayer:
 		log.Println("Added Layers:", added)
 		return ErrUnreachableLayer
 	}
-	n.LastParams = make([]*Blob, len(n.Params))
-	n.ParamTemps = make([]*Blob, len(n.Params))
-	for i, param := range n.Params {
-		n.LastParams[i] = NewBlob(param.Name+"_last", &param.Dim)
-		n.ParamTemps[i] = NewBlob(param.Name+"_temp", &param.Dim)
-	}
 	return nil
 }
 
 func (n *Network) addLayer(layer Layer) error {
-	layerData := new(LayerData)
-	bottomNames := layer.BottomBlobNames()
-	layerData.Bottom = make([]*Blob, len(bottomNames))
-	for i, bottomName := range bottomNames {
-		layerData.Bottom[i] = n.BlobsByName[bottomName]
+	var layerData *LayerData
+	if data, ok := n.LayerDataByName[layer.LayerName()]; ok {
+		layerData = data
+	} else {
+		layerData = new(LayerData)
+		bottomNames := layer.BottomBlobNames()
+		layerData.Bottom = make([]*Blob, len(bottomNames))
+		for i, bottomName := range bottomNames {
+			layerData.Bottom[i] = n.BlobsByName[bottomName]
+		}
 	}
+
 	err := layer.Setup(layerData)
 	if err != nil {
 		return err
 	}
+
 	for _, topBlob := range layerData.Top {
 		n.BlobsByName[topBlob.Name] = topBlob
 	}
+
 	n.Layers = append(n.Layers, layer)
-	n.LayerDatas = append(n.LayerDatas, layerData)
-	n.Params = append(n.Params, layer.Params()...)
+	n.LayerDataByName[layer.LayerName()] = layerData
 	return nil
 }
 
@@ -101,7 +107,7 @@ func (n *Network) Forward() float32 {
 	loss := float32(0)
 	for i := 0; i < len(n.Layers); i++ {
 		layer := n.Layers[i]
-		layerData := n.LayerDatas[i]
+		layerData := n.LayerData(layer)
 		loss += layer.FeedForward(layerData)
 	}
 	return loss
@@ -110,15 +116,29 @@ func (n *Network) Forward() float32 {
 func (n *Network) Backward(loss float32) {
 	for i := len(n.Layers) - 1; i >= 0; i-- {
 		layer := n.Layers[i]
-		layerData := n.LayerDatas[i]
+		layerData := n.LayerData(layer)
 		layer.FeedBackward(layerData, n.UpdateParams)
 	}
 }
 
 func (n *Network) Update() {
-	for _, param := range n.Params {
-		paramDiff := param.Diff.CpuValues()
-		paramData := param.Data.MutableCpuValues()
-		Axpy32(len(paramDiff), +1, paramDiff, paramData)
+	for _, layerData := range n.LayerDataByName {
+		for _, param := range layerData.Params {
+			paramDiff := param.Diff.CpuValues()
+			paramData := param.Data.MutableCpuValues()
+			Axpy32(len(paramDiff), +1, paramDiff, paramData)
+		}
 	}
+}
+
+func (n *Network) LayerData(layer Layer) *LayerData {
+	return n.LayerDataByName[layer.LayerName()]
+}
+
+func (n *Network) Params() []*Blob {
+	params := []*Blob{}
+	for _, layerData := range n.LayerDataByName {
+		params = append(params, layerData.Params...)
+	}
+	return params
 }

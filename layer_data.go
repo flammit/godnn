@@ -61,9 +61,11 @@ func (l *FixedDataLayer) Setup(d *LayerData) error {
 		}
 	}
 
-	d.Top = make([]*Blob, len(l.Data))
-	for i := 0; i < len(l.Data); i++ {
-		d.Top[i] = NewBlob(l.TopNames[i], l.DataDims[i])
+	if d.Top == nil {
+		d.Top = make([]*Blob, len(l.Data))
+		for i := 0; i < len(l.Data); i++ {
+			d.Top[i] = NewBlob(l.TopNames[i], l.DataDims[i])
+		}
 	}
 
 	return nil
@@ -78,7 +80,6 @@ func (l *FixedDataLayer) FeedForward(d *LayerData) float32 {
 }
 
 func (l *FixedDataLayer) FeedBackward(d *LayerData, paramPropagate bool) {}
-func (l *FixedDataLayer) Params() []*Blob                                { return nil }
 func (l *FixedDataLayer) CurrentInputIndex() int                         { return l.inputIndex }
 func (l *FixedDataLayer) NumInputs() int                                 { return l.numInputs }
 
@@ -139,9 +140,11 @@ func (l *BoltDbDataLayer) Setup(d *LayerData) (err error) {
 		l.dims[i].Batch = l.NumInBatch
 	}
 
-	d.Top = make([]*Blob, len(l.TopNames))
-	for i, topName := range l.TopNames {
-		d.Top[i] = NewBlob(topName, l.dims[i])
+	if d.Top == nil {
+		d.Top = make([]*Blob, len(l.TopNames))
+		for i, topName := range l.TopNames {
+			d.Top[i] = NewBlob(topName, l.dims[i])
+		}
 	}
 
 	l.inputIndex = 0
@@ -171,6 +174,5 @@ func (l *BoltDbDataLayer) FeedForward(d *LayerData) float32 {
 }
 
 func (l *BoltDbDataLayer) FeedBackward(d *LayerData, paramPropagate bool) {}
-func (l *BoltDbDataLayer) Params() []*Blob                                { return nil }
 func (l *BoltDbDataLayer) CurrentInputIndex() int                         { return l.inputIndex }
 func (l *BoltDbDataLayer) NumInputs() int                                 { return l.numInputs }

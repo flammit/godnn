@@ -37,10 +37,13 @@ func (l *SoftmaxWithLossLayer) Setup(d *LayerData) error {
 	l.batchSize = probDim.BatchSize()
 	l.spatialSize = probDim.SpatialSize()
 
-	d.Top = make([]*Blob, 2)
-	d.Top[0] = NewBlob(l.TopNames[0], &BlobPoint{1, 1, 1, 1})
-	d.Top[0].Diff.MutableCpuValues()[0] = 1 // loss weight
-	d.Top[1] = NewBlob(l.TopNames[1], probDim)
+	if d.Top == nil {
+		d.Top = make([]*Blob, 2)
+		d.Top[0] = NewBlob(l.TopNames[0], &BlobPoint{1, 1, 1, 1})
+		d.Top[0].Diff.MutableCpuValues()[0] = 1 // loss weight
+		d.Top[1] = NewBlob(l.TopNames[1], probDim)
+	}
+
 	return nil
 }
 
@@ -78,8 +81,6 @@ func (l *SoftmaxWithLossLayer) FeedBackward(d *LayerData, paramPropagate bool) {
 	lossWeight := d.Top[0].Diff.CpuValues()[0]
 	Scal32(len(bottomDiff), lossWeight/float32(l.numBatches*l.spatialSize), bottomDiff)
 }
-
-func (l *SoftmaxWithLossLayer) Params() []*Blob { return nil }
 
 var (
 	ErrSigmoidCrossEntropyLossLayerInvalidInputSize = errors.New("invalid bottom data: must be the same size")
@@ -119,8 +120,11 @@ func (l *SigmoidCrossEntropyLossLayer) Setup(d *LayerData) error {
 	l.bottomBatch = bottomDim.Batch
 	l.bottomSize = bottomDim.Size()
 
-	d.Top = make([]*Blob, 1)
-	d.Top[0] = NewBlob(l.TopNames[0], &BlobPoint{1, 1, 1, 1})
+	if d.Top == nil {
+		d.Top = make([]*Blob, 1)
+		d.Top[0] = NewBlob(l.TopNames[0], &BlobPoint{1, 1, 1, 1})
+	}
+
 	return nil
 }
 
@@ -148,8 +152,4 @@ func (l *SigmoidCrossEntropyLossLayer) FeedBackward(d *LayerData, paramPropagate
 	BinaryEval32(sigmoidOutputData, targetData, bottomDiff, Sub32)
 	loss := d.Top[0].Data.CpuValues()[0]
 	Scal32(l.bottomSize, loss/float32(l.bottomBatch), bottomDiff)
-}
-
-func (l *SigmoidCrossEntropyLossLayer) Params() []*Blob {
-	return nil
 }

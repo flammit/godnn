@@ -65,29 +65,43 @@ func (l *ConvolutionLayer) Setup(d *LayerData) error {
 	l.colOffset = l.k * l.n
 	l.topOffset = l.m * l.n
 
-	l.weightParams = NewBlob(l.LayerName()+"_weight",
-		&BlobPoint{l.NumOutputs, l.outputChannels, l.KernelHeight, l.KernelWidth})
+	if d.Params == nil {
+		l.weightParams = NewBlob(l.LayerName()+"_weight",
+			&BlobPoint{l.NumOutputs, l.outputChannels, l.KernelHeight, l.KernelWidth})
+		d.Params = []*Blob{l.weightParams}
+		if l.IncludeBias {
+			l.biasParams = NewBlob(l.LayerName()+"_bias",
+				&BlobPoint{1, 1, 1, l.NumOutputs})
+			d.Params = append(d.Params, l.biasParams)
+		}
+		weightData := l.weightParams.Data.MutableCpuValues()
+		weightScale := Sqrt32(3 / float32(l.bottomDim.BatchSize()))
+		for i, _ := range weightData {
+			weightData[i] = (rand.Float32() - 0.5) * 2.0 * weightScale
+		}
+		Set32(l.biasParams.Data.MutableCpuValues(), 0)
+	} else {
+		l.weightParams = d.Params[0]
+		if l.IncludeBias {
+			l.biasParams = d.Params[1]
+		}
+	}
+
 	if l.IncludeBias {
-		l.biasParams = NewBlob(l.LayerName()+"_bias",
-			&BlobPoint{1, 1, 1, l.NumOutputs})
 		l.biasMultiplier = NewBlob(l.LayerName()+"_biasMultiplier",
 			&BlobPoint{1, 1, 1, l.heightTop * l.widthTop})
+		Set32(l.biasMultiplier.Data.MutableCpuValues(), 1)
 	}
-	weightData := l.weightParams.Data.MutableCpuValues()
-	weightScale := Sqrt32(3 / float32(l.bottomDim.BatchSize()))
-	for i, _ := range weightData {
-		weightData[i] = (rand.Float32() - 0.5) * 2.0 * weightScale
-	}
-	Set32(l.biasParams.Data.MutableCpuValues(), 0)
-	Set32(l.biasMultiplier.Data.MutableCpuValues(), 1)
 
 	l.colBuffer = NewBlob(l.LayerName()+"_colBuffer",
 		&BlobPoint{1, l.bottomDim.Channel * l.KernelHeight * l.KernelWidth, l.heightTop, l.widthTop})
 
-	d.Top = make([]*Blob, len(l.TopNames))
-	for n := 0; n < len(l.TopNames); n++ {
-		d.Top[n] = NewBlob(l.TopNames[n],
-			&BlobPoint{l.bottomDim.Batch, l.NumOutputs, l.heightTop, l.widthTop})
+	if d.Top == nil {
+		d.Top = make([]*Blob, len(l.TopNames))
+		for n := 0; n < len(l.TopNames); n++ {
+			d.Top[n] = NewBlob(l.TopNames[n],
+				&BlobPoint{l.bottomDim.Batch, l.NumOutputs, l.heightTop, l.widthTop})
+		}
 	}
 
 	return nil
@@ -179,13 +193,6 @@ func (l *ConvolutionLayer) FeedBackward(d *LayerData, paramPropagate bool) {
 	}
 }
 
-func (l *ConvolutionLayer) Params() []*Blob {
-	if l.IncludeBias {
-		return []*Blob{l.weightParams, l.biasParams, l.biasMultiplier}
-	}
-	return []*Blob{l.weightParams}
-}
-
 func NewConvolutionLayer(baseLayer BaseLayer,
 	numOutputs, numGroups, kernelHeight, kernelWidth,
 	padHeight, padWidth, strideHeight, strideWidth int,
@@ -245,10 +252,13 @@ func (l *PoolingLayer) Setup(d *LayerData) error {
 		l.pooledWidth--
 	}
 
-	d.Top = make([]*Blob, 2)
-	d.Top[0] = NewBlob(l.TopNames[0], &BlobPoint{l.bottomDim.Batch, l.bottomDim.Channel,
-		l.pooledHeight, l.pooledWidth})
-	d.Top[1] = NewBlob(l.TopNames[1], &d.Top[0].Dim)
+	if d.Top == nil {
+		d.Top = make([]*Blob, 2)
+		d.Top[0] = NewBlob(l.TopNames[0], &BlobPoint{l.bottomDim.Batch, l.bottomDim.Channel,
+			l.pooledHeight, l.pooledWidth})
+		d.Top[1] = NewBlob(l.TopNames[1], &d.Top[0].Dim)
+	}
+
 	l.topDim = &d.Top[0].Dim
 	return nil
 }
@@ -404,8 +414,4 @@ func (l *PoolingLayer) feedBackwardAverage(topDiff, bottomDiff []float32) {
 			}
 		}
 	}
-}
-
-func (l *PoolingLayer) Params() []*Blob {
-	return nil
 }
